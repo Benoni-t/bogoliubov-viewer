@@ -18,6 +18,18 @@ function closest(arr,v) {
 function selection() {
   return cases.find(c=>c.fit===$("fit").value && c.pump===+$("pump").value && c.loss===Boolean(+$("loss").value) && c.order===+$("order").value);
 }
+function renderCircuit(fitName) {
+  const fit=window.circuitFits?.[fitName];
+  $("circuit").hidden=!fit;
+  if(!fit) return;
+  const [omega,exponent]=(2*Math.PI*fit.fP_GHz*1e9).toExponential(5).split("e");
+  $("circuit-cj").textContent=(fit.CJ_F*1e15).toFixed(1);
+  $("circuit-cg").textContent=(fit.Cg_F*1e18).toFixed(3);
+  $("circuit-omega").textContent=omega;
+  $("circuit-exponent").textContent=String(Number(exponent));
+  $("circuit-fp").textContent=fit.fP_GHz.toFixed(5);
+  $("circuit-ratio").textContent=fit.c.toLocaleString("en-US",{maximumFractionDigits:2,minimumFractionDigits:2});
+}
 function pumps() {
   const old=+$("pump").value || 5;
   const values=[...new Set(cases.filter(c=>c.fit===$("fit").value).map(c=>c.pump))].sort((a,b)=>a-b);
@@ -264,6 +276,7 @@ async function change() {
     const next=await loadCase(c.id);
     if(ticket!==current.ticket) return;
     loaded=next;
+    renderCircuit(c.fit);
     option($("row"),next.power.map((_,i)=>i),i=>next.power[i].toFixed(3)+" dBm"+(next.power[i]>next.ceiling?" (formal)":""));
     $("row").value=closest(next.power,current.power);
     const idx=[...new Set(sampled(next.x.length,161).concat(representativeIndices(next)))].sort((a,b)=>a-b);
