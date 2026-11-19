@@ -8,7 +8,7 @@ const palette = [[0,"#230878"],[.20,"#4653ba"],[.42,"#84f6fa"],[.55,"#3e7c0c"],[
 const lineColors=["#16788c","#ac542b","#186a71","#6254ab"];
 const cache = new Map();
 const current = {view:"response", power:-104.5, frequency:0, ticket:0};
-const views = {response:"Frequency cuts",powercut:"Power cuts",map:"Power and frequency maps",surface:"Rotatable response surfaces",healing:"Response around the healing scale",branches:"Local Bogoliubov branches",evolution:"Sideband evolution along the line"};
+const views = {response:"Frequency cuts",powercut:"Power cuts",map:"Power and frequency maps",surface:"Rotatable response surfaces",healing:"Response around the healing scale",dispersion:"Linear and Bogoliubov dispersion",branches:"Local Bogoliubov branches",evolution:"Sideband evolution along the line"};
 function option(sel,values,label=String) {
   sel.replaceChildren(...values.map(value=>new Option(label(value),value)));
 }
@@ -30,9 +30,12 @@ function renderCircuit(fitName) {
   $("circuit-fp").textContent=fit.fP_GHz.toFixed(5);
   $("circuit-ratio").textContent=fit.c.toLocaleString("en-US",{maximumFractionDigits:2,minimumFractionDigits:2});
 }
+function pumpFrequencies(fit) {
+  return [...new Set(cases.filter(c=>c.fit===fit).map(c=>c.pump))].sort((a,b)=>a-b);
+}
 function pumps() {
   const old=+$("pump").value || 5;
-  const values=[...new Set(cases.filter(c=>c.fit===$("fit").value).map(c=>c.pump))].sort((a,b)=>a-b);
+  const values=pumpFrequencies($("fit").value);
   option($("pump"),values,v=>v.toFixed(2)+" GHz");
   $("pump").value=values[closest(values,old)];
 }
@@ -134,9 +137,61 @@ function representativeIndices(c) {
   const ids=[closest(c.x,0),closest(c.x,-c.healing.inlet["fξ_MHz"]),closest(c.x,c.healing.inlet["fξ_MHz"])];
   return [...new Set(ids)];
 }
+function bareWaveNumber(f,fit,tanDelta) {
+  // q = f / sqrt(c (B - f²)), with B = fP² / (1 + i tan δ).
+  const reB=fit.fP_GHz**2/(1+tanDelta**2);
+  const re=reB-f**2;
+  const modulus=Math.hypot(re,tanDelta*reB);
+  return f*Math.sqrt((modulus+re)/(2*fit.c))/modulus;
+}
+function bareDispersion(c) {
+  const fit=window.circuitFits[c.fit];
+  const tanDelta=c.loss ? window.circuitLossTangent : 0;
+  const frequencies=Array.from({length:601},(_,i)=>i*(fit.fP_GHz-.020)/600);
+  const q=f=>bareWaveNumber(f,fit,tanDelta)/Math.PI;
+  const available=pumpFrequencies(c.fit).filter(f=>f!==c.pump);
+  const pumpX=c.carrier[0]/Math.PI;
+  const layout=base("Bare circuit dispersion",axis("Re(q) / π,  q = ka"),axis("Frequency f (GHz)",[0,fit.fP_GHz*1.075]),0);
+  layout.shapes=[cutoff(fit.fP_GHz)];
+  layout.annotations=[{xref:"paper",x:1,xanchor:"right",y:fit.fP_GHz,yshift:9,text:"f<sub>P</sub> = "+fit.fP_GHz.toFixed(3)+" GHz",showarrow:false,font:{size:11,color:"#526273"}}];
+  const traces=[
+    {...trace(frequencies.map(q),frequencies,"Bare circuit",lineColors[0]),hovertemplate:"f = %{y:.4f} GHz<br>Re(q)/π = %{x:.5f}<extra>Bare circuit</extra>"},
+    {x:available.map(q),y:available,type:"scatter",mode:"markers",name:"Available pumps",
+      marker:{size:7,color:"#ffffff",line:{color:"#586f81",width:1.4}},
+      hovertemplate:"f = %{y:.2f} GHz<br>Re(q)/π = %{x:.5f}<extra>Available pump</extra>"},
+    {x:[pumpX],y:[c.pump],type:"scatter",mode:"markers+text",name:"Selected pump",
+      text:[c.pump.toFixed(2)+" GHz"],textposition:"middle right",textfont:{size:11,color:"#853722"},
+      marker:{size:12,color:"#9f4127",line:{color:"#fff",width:1.5}},
+      hovertemplate:"f = %{y:.2f} GHz<br>Re(q)/π = %{x:.5f}<extra>Selected pump</extra>"}
+  ];
+  layout.showlegend=true;
+  layout.legend={orientation:"h",x:0,y:-.22,yanchor:"top",font:{size:11}};
+  layout.margin.b=96;
+  return {traces,layout};
+}
+function bogoliubovDispersion(c,edge,h) {
+  const scale=h["fξ_MHz"];
+  const detuning=h.x.map(x=>x*scale);
+  const zero=closest(detuning,0);
+  const layout=base("Bogoliubov branches · "+edge,axis("Detuning Ω / (2π) (MHz)"),axis("Re(N K<sub>±</sub>) (rad)"),1);
+  layout.shapes=[vert(0,"#9f4127","dot"),vert(-scale,"#087b76","dash"),vert(scale,"#087b76","dash")];
+  layout.showlegend=true;
+  layout.legend={orientation:"h",x:0,y:-.22,yanchor:"top",font:{size:11}};
+  layout.margin.b=96;
+  const traces=h.branches.slice(0,2).map((branch,i)=>({
+    ...trace(detuning,branch,i?"K−":"K+",lineColors[i]),
+    customdata:detuning.map(x=>c.pump+x/1000),
+    hovertemplate:"Ω/(2π) = %{x:.3f} MHz<br>f = %{customdata:.5f} GHz<br>Re(NK) = %{y:.5g} rad<extra>%{fullData.name}</extra>"
+  }));
+  traces.push({x:[0,0],y:[h.branches[0][zero],h.branches[1][zero]],type:"scatter",mode:"markers",
+    name:"Selected pump",marker:{size:10,color:"#9f4127",line:{color:"#fff",width:1.2}},
+    hovertemplate:"Pump at "+c.pump.toFixed(2)+" GHz<br>Ω/(2π) = 0 MHz<extra></extra>"});
+  return {traces,layout};
+}
 function render(c,p,di) {
   const group=$("panels");
-  const num=current.view==="branches"?2:4;
+  const dispersion=current.view==="dispersion";
+  const num=current.view==="branches"||dispersion?2:4;
   while(group.children.length>num) {Plotly.purge(group.lastChild);group.lastChild.remove();}
   while(group.children.length<num) {const div=document.createElement("div");div.className="panel";group.append(div);}
   const edge=$("edge").value;
@@ -149,11 +204,13 @@ function render(c,p,di) {
   const xTitle=absolute?"Probe frequency (GHz)":mhz;
   for(let q=0;q<num;q++) {
     const div=group.children[q];
-    div.className="panel"+(current.view==="surface"?" surface":"");
+    div.className="panel"+(current.view==="surface"?" surface":dispersion?" dispersion":"");
     const yLabel=axis(units[q]);
     let layout=base(columns[q],axis(xTitle),yLabel,q);
     let traces=[];
-    if(current.view==="response") {
+    if(dispersion) {
+      ({traces,layout}=q ? bogoliubovDispersion(c,edge,h) : bareDispersion(c));
+    } else if(current.view==="response") {
       const window=$("zoom").value;
       if(window!=="full") {
         const hv=(window==="inlet"?c.inlet_MHz:c.outlet_MHz)[p];
@@ -246,14 +303,15 @@ function plot() {
   $("title").textContent=views[v];
   $("detail").textContent=c.pump.toFixed(2)+" GHz pump · "+(c.loss?"tan δ = 0.0027":"lossless")+" · "+(c.order===0?"full circuit dispersion":"order "+c.order);
   for (const name of ["row","detuning","zoom","axis","edge","phase","domain"]) {
-    const show={row:v==="response",detuning:v==="powercut",zoom:v==="response"||v==="map"||v==="surface",axis:v==="response"||v==="map"||v==="surface",edge:v==="healing"||v==="branches",phase:v!=="branches",domain:v==="map"||v==="surface"}[name];
+    const show={row:v==="response",detuning:v==="powercut",zoom:v==="response"||v==="map"||v==="surface",axis:v==="response"||v==="map"||v==="surface",edge:v==="healing"||v==="branches"||v==="dispersion",phase:v!=="branches"&&v!=="dispersion",domain:v==="map"||v==="surface"}[name];
     $(name+"-label").hidden=!show;
   }
-  const focal=v==="healing"||v==="branches"||v==="evolution"?closest(c.power,c.working):p;
-  const cut=v==="response"||v==="healing"||v==="branches"||v==="evolution";
+  $("edge-caption").textContent=v==="dispersion"?"Branch location":"Healing scale";
+  const focal=v==="healing"||v==="branches"||v==="evolution"||v==="dispersion"?closest(c.power,c.working):p;
+  const cut=v==="response"||v==="healing"||v==="branches"||v==="evolution"||v==="dispersion";
   const info=[cut?"Cut "+c.power[focal].toFixed(3)+" dBm":c.power.length+" calculated powers"];
   if(cut) info.push("fξ inlet "+(c.inlet_MHz[focal]?.toFixed(4)??"outside band")+" MHz","fξ outlet "+(c.outlet_MHz[focal]?.toFixed(4)??"outside band")+" MHz");
-  if($("phase").value==="pumpframe"&&v!=="branches") info.push("Common pump phase removed");
+  if($("phase").value==="pumpframe"&&v!=="branches"&&v!=="dispersion") info.push("Common pump phase removed");
   if(v==="surface"||v==="map") info.push(c.x.length+" × "+c.power.length+" shared calculation grid");
   if((v==="map"||v==="surface") && $("zoom").value!=="full") {
     const edge=$("zoom").value;
