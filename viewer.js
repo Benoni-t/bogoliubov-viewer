@@ -8,7 +8,7 @@ const palette = [[0,"#230878"],[.20,"#4653ba"],[.42,"#84f6fa"],[.55,"#3e7c0c"],[
 const lineColors=["#16788c","#ac542b","#186a71","#6254ab"];
 const cache = new Map();
 const current = {view:"response", power:-104.5, frequency:0, ticket:0};
-const views = {response:"Frequency cuts",powercut:"Power cuts",map:"Power and frequency maps",surface:"Rotatable response surfaces",healing:"Response around the healing scale",dispersion:"Linear and Bogoliubov dispersion",branches:"Local Bogoliubov branches",evolution:"Sideband evolution along the line"};
+const views = {response:"Frequency cuts",powercut:"Power cuts",map:"Power and frequency maps",surface:"Rotatable response surfaces",healing:"Response around the healing scale",branches:"Local Bogoliubov branches",evolution:"Sideband evolution along the line"};
 function option(sel,values,label=String) {
   sel.replaceChildren(...values.map(value=>new Option(label(value),value)));
 }
@@ -188,10 +188,20 @@ function bogoliubovDispersion(c,edge,h) {
     hovertemplate:"Pump at "+c.pump.toFixed(2)+" GHz<br>Ω/(2π) = 0 MHz<extra></extra>"});
   return {traces,layout};
 }
+function renderDispersion(c) {
+  const edge=$("edge").value;
+  const h=c.healing[edge];
+  const bare=bareDispersion(c);
+  const branches=bogoliubovDispersion(c,edge,h);
+  bare.layout.uirevision=[c.fit,c.loss].join(":");
+  branches.layout.uirevision=[c.id,edge].join(":");
+  $("dispersion-operating").textContent=c.pump.toFixed(2)+" GHz pump · Chip input "+c.working.toFixed(3)+" dBm · fξ "+h["fξ_MHz"].toFixed(4)+" MHz";
+  Plotly.react($("bare-dispersion"),bare.traces,bare.layout,config);
+  Plotly.react($("bogoliubov-dispersion"),branches.traces,branches.layout,config);
+}
 function render(c,p,di) {
   const group=$("panels");
-  const dispersion=current.view==="dispersion";
-  const num=current.view==="branches"||dispersion?2:4;
+  const num=current.view==="branches"?2:4;
   while(group.children.length>num) {Plotly.purge(group.lastChild);group.lastChild.remove();}
   while(group.children.length<num) {const div=document.createElement("div");div.className="panel";group.append(div);}
   const edge=$("edge").value;
@@ -204,13 +214,11 @@ function render(c,p,di) {
   const xTitle=absolute?"Probe frequency (GHz)":mhz;
   for(let q=0;q<num;q++) {
     const div=group.children[q];
-    div.className="panel"+(current.view==="surface"?" surface":dispersion?" dispersion":"");
+    div.className="panel"+(current.view==="surface"?" surface":"");
     const yLabel=axis(units[q]);
     let layout=base(columns[q],axis(xTitle),yLabel,q);
     let traces=[];
-    if(dispersion) {
-      ({traces,layout}=q ? bogoliubovDispersion(c,edge,h) : bareDispersion(c));
-    } else if(current.view==="response") {
+    if(current.view==="response") {
       const window=$("zoom").value;
       if(window!=="full") {
         const hv=(window==="inlet"?c.inlet_MHz:c.outlet_MHz)[p];
@@ -302,16 +310,15 @@ function plot() {
   const v=current.view;
   $("title").textContent=views[v];
   $("detail").textContent=c.pump.toFixed(2)+" GHz pump · "+(c.loss?"tan δ = 0.0027":"lossless")+" · "+(c.order===0?"full circuit dispersion":"order "+c.order);
-  for (const name of ["row","detuning","zoom","axis","edge","phase","domain"]) {
-    const show={row:v==="response",detuning:v==="powercut",zoom:v==="response"||v==="map"||v==="surface",axis:v==="response"||v==="map"||v==="surface",edge:v==="healing"||v==="branches"||v==="dispersion",phase:v!=="branches"&&v!=="dispersion",domain:v==="map"||v==="surface"}[name];
+  for (const name of ["row","detuning","zoom","axis","phase","domain"]) {
+    const show={row:v==="response",detuning:v==="powercut",zoom:v==="response"||v==="map"||v==="surface",axis:v==="response"||v==="map"||v==="surface",phase:v!=="branches",domain:v==="map"||v==="surface"}[name];
     $(name+"-label").hidden=!show;
   }
-  $("edge-caption").textContent=v==="dispersion"?"Branch location":"Healing scale";
-  const focal=v==="healing"||v==="branches"||v==="evolution"||v==="dispersion"?closest(c.power,c.working):p;
-  const cut=v==="response"||v==="healing"||v==="branches"||v==="evolution"||v==="dispersion";
+  const focal=v==="healing"||v==="branches"||v==="evolution"?closest(c.power,c.working):p;
+  const cut=v==="response"||v==="healing"||v==="branches"||v==="evolution";
   const info=[cut?"Cut "+c.power[focal].toFixed(3)+" dBm":c.power.length+" calculated powers"];
   if(cut) info.push("fξ inlet "+(c.inlet_MHz[focal]?.toFixed(4)??"outside band")+" MHz","fξ outlet "+(c.outlet_MHz[focal]?.toFixed(4)??"outside band")+" MHz");
-  if($("phase").value==="pumpframe"&&v!=="branches"&&v!=="dispersion") info.push("Common pump phase removed");
+  if($("phase").value==="pumpframe"&&v!=="branches") info.push("Common pump phase removed");
   if(v==="surface"||v==="map") info.push(c.x.length+" × "+c.power.length+" shared calculation grid");
   if((v==="map"||v==="surface") && $("zoom").value!=="full") {
     const edge=$("zoom").value;
@@ -335,6 +342,7 @@ async function change() {
     if(ticket!==current.ticket) return;
     loaded=next;
     renderCircuit(c.fit);
+    renderDispersion(next);
     option($("row"),next.power.map((_,i)=>i),i=>next.power[i].toFixed(3)+" dBm"+(next.power[i]>next.ceiling?" (formal)":""));
     $("row").value=closest(next.power,current.power);
     const idx=[...new Set(sampled(next.x.length,161).concat(representativeIndices(next)))].sort((a,b)=>a-b);
@@ -350,7 +358,12 @@ $("fit").addEventListener("change",()=>{pumps();change();});
 for(const id of ["pump","loss","order"]) $(id).addEventListener("change",change);
 $("row").addEventListener("change",()=>{current.power=loaded.power[+$("row").value];plot();});
 $("detuning").addEventListener("change",()=>{current.frequency=loaded.x[+$("detuning").value];plot();});
-for(const id of ["zoom","axis","edge","phase","domain"]) $(id).addEventListener("change",plot);
+for(const id of ["zoom","axis","phase","domain"]) $(id).addEventListener("change",plot);
+$("edge").addEventListener("change",()=>{
+  if(!loaded) return;
+  renderDispersion(loaded);
+  plot();
+});
 document.querySelectorAll("[data-view]").forEach(btn=>btn.addEventListener("click",()=>{
   current.view=btn.dataset.view;
   document.querySelectorAll("[data-view]").forEach(b=>b.setAttribute("aria-pressed",b===btn));

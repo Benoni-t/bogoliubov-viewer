@@ -11,7 +11,11 @@ header{background:linear-gradient(112deg,#0b1a30,#173448);color:white;padding:31
 .circuit dd small,.circuit .circuit-note{font-weight:500}
 @media(max-width:760px){.circuit dl{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .viewhead{display:flex;align-items:flex-start;justify-content:space-between;gap:17px;flex-wrap:wrap;margin-top:16px}h2{font:500 29px/1.2 Georgia,serif;margin:0}#detail,#status{color:var(--sub);margin:5px 0;font-size:13px}#status{padding-bottom:6px;min-height:23px}.options{justify-content:flex-end}
-#panels{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.panel{min-width:0;background:white;border:1px solid var(--edge);border-radius:7px;overflow:hidden;height:385px}.panel.surface{height:438px}
+.dispersion-section{margin:0 0 15px}
+.dispersion-head{display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:9px 20px;margin:0 0 9px}
+.dispersion-head label{min-width:108px}
+#dispersion-operating{margin:4px 0 0;color:var(--sub);font-size:13px}
+:is(#panels,#dispersion-panels){display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.panel{min-width:0;background:white;border:1px solid var(--edge);border-radius:7px;overflow:hidden;height:385px}.panel.surface{height:438px}
 .panel.dispersion{height:408px}
-details{margin:21px 0;background:white;border:1px solid var(--edge);border-radius:6px;padding:12px 15px}summary{cursor:pointer;color:var(--accent);font-weight:650}.notes{max-width:95ch;color:var(--sub)}footer{display:flex;flex-wrap:wrap;gap:15px;padding:0 0 28px}a{color:var(--accent);text-underline-offset:3px}@media(max-width:760px){#panels{grid-template-columns:1fr}.panel{height:352px}.shell{padding:0 13px}.options{justify-content:flex-start}.nav button{padding:8px}}
+details{margin:21px 0;background:white;border:1px solid var(--edge);border-radius:6px;padding:12px 15px}summary{cursor:pointer;color:var(--accent);font-weight:650}.notes{max-width:95ch;color:var(--sub)}footer{display:flex;flex-wrap:wrap;gap:15px;padding:0 0 28px}a{color:var(--accent);text-underline-offset:3px}@media(max-width:760px){:is(#panels,#dispersion-panels){grid-template-columns:1fr}.panel{height:352px}.shell{padding:0 13px}.options{justify-content:flex-start}.nav button{padding:8px}}
 

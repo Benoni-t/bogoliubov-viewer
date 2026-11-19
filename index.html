@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Bogoliubov waves in a Josephson array</title>
-<link rel="stylesheet" href="viewer.css?v=dispersion"><link rel="icon" href="data:,">
-<script defer src="plotly.min.js"></script><script defer src="catalog.js?v=dispersion"></script><script defer src="viewer.js?v=dispersion"></script>
+<link rel="stylesheet" href="viewer.css?v=top-dispersion"><link rel="icon" href="data:,">
+<script defer src="plotly.min.js"></script><script defer src="catalog.js?v=dispersion"></script><script defer src="viewer.js?v=top-dispersion"></script>
 </head>
 <body>
 <header><div class="shell"><p class="eyebrow">JOSEPHSON TRANSMISSION LINE · 10,000 CELLS</p><h1>Bogoliubov waves</h1><p class="sub">Probe and physical idler response across the pump sweep.</p></div></header>
@@ -24,15 +24,24 @@
 <div><dt>Capacitance ratio <i>c</i> = <i>C</i><sub>J</sub>/<i>C</i><sub>G</sub></dt><dd id="circuit-ratio"></dd></div>
 </dl>
 </section>
+<section class="dispersion-section" aria-labelledby="dispersion-title">
+<div class="dispersion-head">
+<div><h2 id="dispersion-title">Linear and Bogoliubov dispersion</h2><p id="dispersion-operating" role="status"></p></div>
+<label>Line location<select id="edge"><option value="inlet">Inlet</option><option value="outlet">Outlet</option></select></label>
+</div>
+<div id="dispersion-panels">
+<div id="bare-dispersion" class="panel dispersion"></div>
+<div id="bogoliubov-dispersion" class="panel dispersion"></div>
+</div>
+</section>
 <section class="nav" aria-label="Plot views">
-<button data-view="response" aria-pressed="true">Frequency cuts</button><button data-view="powercut">Power cuts</button><button data-view="map">2D maps</button><button data-view="surface">3D maps</button><button data-view="healing">Healing zoom</button><button data-view="dispersion">Dispersion</button><button data-view="branches">Local branches</button><button data-view="evolution">Along the line</button>
+<button data-view="response" aria-pressed="true">Frequency cuts</button><button data-view="powercut">Power cuts</button><button data-view="map">2D maps</button><button data-view="surface">3D maps</button><button data-view="healing">Healing zoom</button><button data-view="branches">Local branches</button><button data-view="evolution">Along the line</button>
 </section>
 <div class="viewhead"><div><h2 id="title"></h2><p id="detail"></p></div><div class="options">
 <label id="row-label">Chip power<select id="row"></select></label>
 <label id="detuning-label">Probe detuning<select id="detuning"></select></label>
 <label id="zoom-label">Frequency window<select id="zoom"><option value="full">Full band</option><option value="inlet">±5 inlet healing scales</option><option value="outlet">±5 outlet healing scales</option></select></label>
 <label id="axis-label">Horizontal axis<select id="axis"><option value="detuning">Probe detuning (MHz)</option><option value="frequency">Probe frequency (GHz)</option></select></label>
-<label id="edge-label"><span id="edge-caption">Healing scale</span><select id="edge"><option value="inlet">Inlet</option><option value="outlet">Outlet</option></select></label>
 <label id="phase-label">Phase reference<select id="phase"><option value="physical">Physical output</option><option value="pumpframe">Remove pump phase</option></select></label>
 <label id="domain-label">Power range<select id="domain"><option value="accepted">Within model criteria</option><option value="full">Requested −110 to −60 dBm</option></select></label>
 </div></div>
@@ -41,7 +50,7 @@
 <details><summary>Phase, bandwidth and power conventions</summary><div class="notes">
 <p>The probe coordinate is signed (f<sub>pr</sub> − f<sub>pump</sub>) and the physical idler is at f<sub>pump</sub> − (f<sub>pr</sub> − f<sub>pump</sub>). With the physical-output reference, the probe phase is pump-on over pump-off and the idler phase uses a real unit input probe. Remove the pump phase to reproduce the original pump-frame phase convention. This selection applies the same phase offset in every view. Lossless idler curves lift by π at conversion zeros and break at each zero. At exactly zero detuning the displayed result is the coincident-sideband limit.</p>
 <p>Chip power is mapped to I<sub>pk</sub> with a 50 Ω reference. The displayed model ceiling combines I<sub>pk</sub> ≤ 0.3 I<sub>c</sub> and a healing-band Taylor accuracy test against the exact circuit. Beyond that ceiling, computed data are formal. Above I<sub>pk</sub> = I<sub>c</sub> the maps leave the requested range empty. The vertical map guides mark the inlet and outlet healing scales. The Taylor frequency band is reported separately.</p>
-<p>The dispersion view marks the available pump frequencies on the bare circuit curve. The selected pump is highlighted there and at zero detuning in the local Bogoliubov branches. The bare curve uses the full circuit expression up to 20 MHz below the plasma frequency. The branches use the selected dispersion order and the indicated chip power and location.</p>
+<p>The dispersion plots mark the available pump frequencies on the bare circuit curve. The selected pump is highlighted there and at zero detuning in the local Bogoliubov branches. The bare curve uses the full circuit expression up to 20 MHz below the plasma frequency. The branches use the selected dispersion order and the indicated chip power. The line location also selects the position used in Healing zoom and Local branches.</p>
 <p>Amplitudes use the same complex solutions as the phases. Probe and idler amplitude are in dB relative to the incident probe. Grey areas or breaks mark excluded data or phases below the amplitude floor. Both maps use the identical 401 × 401 calculation grid. The lossy phase is seeded by a dense frequency sweep at the lowest power and lifted along the power axis. Gaps mark links where the frequency and power continuations disagree or where the phase becomes unresolved. The 3D surfaces interpolate between displayed samples. The line cuts show each lossless conversion zero as a break. Run 2 supplies the two conditional dispersion fits. Loss tangent is imposed.</p>
 </div></details>
 <footer><a href="Bogoliubov_Rebuild.pdf">Calculation report</a><a href="Bogoliubov_Julia.ipynb">Julia notebook</a><a href="Map_Atlas.html">Full map atlas</a><a href="All_Response_Cuts.pdf">Frequency-cut atlas</a><a href="Circuit_Diagnostics.pdf">Circuit diagnostics</a><a href="Validation.pdf">Analytic and numerical checks</a></footer>
